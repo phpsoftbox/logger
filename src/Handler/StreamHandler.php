@@ -12,16 +12,19 @@ use PhpSoftBox\Logger\LogRecord;
 use PhpSoftBox\Logger\Processor\ProcessorInterface;
 use RuntimeException;
 
+use function clearstatcache;
 use function dirname;
 use function fclose;
 use function fflush;
 use function file_exists;
 use function fopen;
+use function fstat;
 use function fwrite;
 use function is_dir;
 use function is_resource;
 use function mkdir;
 use function sprintf;
+use function stat;
 use function str_starts_with;
 
 use const PHP_EOL;
@@ -68,6 +71,23 @@ class StreamHandler extends AbstractProcessingHandler
             fclose($this->stream);
             $this->stream = null;
         }
+    }
+
+    /**
+     * Открытый поток пишет не в файл по пути `$path`: файл удалён или переименован (ротация другим процессом,
+     * logrotate без copytruncate). Такой поток нужно закрыть, чтобы следующая запись открыла файл заново.
+     */
+    protected function isStreamDetached(): bool
+    {
+        if (!is_resource($this->stream) || str_starts_with($this->path, 'php://')) {
+            return false;
+        }
+
+        clearstatcache(true, $this->path);
+        $current = @stat($this->path);
+        $opened  = fstat($this->stream);
+
+        return $current === false || $opened === false || $current['ino'] !== $opened['ino'] || $current['dev'] !== $opened['dev'];
     }
 
     /**

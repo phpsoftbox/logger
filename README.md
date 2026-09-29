@@ -14,6 +14,8 @@ PSR-3 совместимый логгер с модульной архитект
 composer require phpsoftbox/logger
 ```
 
+Пакет объявляет `provide: psr/log-implementation` — удовлетворяет зависимостям, требующим реализацию PSR-3.
+
 ## Быстрый пример
 ```php
 use PhpSoftBox\Logger\Logger;
@@ -95,6 +97,52 @@ $container = $builder->build();
 $appLogger = $container->get(Logger::class);
 $auditLogger = $container->get('logger.audit');
 ```
+
+## Форматтеры и контекст
+
+`LineFormatter` и `JsonFormatter` приводят context/extra через `ContextNormalizer`, поэтому запись в лог не падает
+из-за содержимого контекста:
+
+- некорректный UTF-8 заменяется на `U+FFFD`, `NAN`/`INF` — строками `"NAN"`/`"INF"`;
+- исключение — `class`, `message`, `code`, `file`, `line`, `trace` и цепочка `previous`;
+- `DateTimeInterface` — строка RFC 3339, `JsonSerializable` — результат `jsonSerialize()`, enum — значение (имя для
+  чистого enum), `Stringable` — строка, прочие объекты — `[object Class]`, ресурсы — `[resource type]`;
+- вложенность глубже 9 уровней обрезается до `[max depth]`.
+
+Конфигурация форматтера в `LoggerFactory`:
+
+```php
+'formatter' => 'line',                                        // LineFormatter::DEFAULT_FORMAT
+'formatter' => ['type' => 'line', 'format' => '...', 'date_format' => DATE_ATOM, 'stacktrace_multiline' => true],
+'formatter' => ['type' => 'json', 'format' => '...', 'flags' => JSON_UNESCAPED_UNICODE],
+```
+
+Формат строки по умолчанию одинаков для `'line'` и массива без `format`:
+`[%datetime%] %level_name%: %message% %context% %extra%`.
+
+## RedactSecretsProcessor
+
+- Ключ context/extra скрывается целиком, если его имя **содержит** одно из ключевых слов
+  (`RedactSecretsProcessor::DEFAULT_KEYS`: `password`, `passwd`, `token`, `secret`, `authorization`, `api_key`,
+  `apikey`, `private_key`, `cookie`), без учёта регистра: `access_token`, `client_secret`, `X-Auth-Token`.
+- В строковых значениях скрываются пары `ключ=значение` / `ключ: значение` / `"ключ":"значение"` и
+  `Authorization: Bearer …` — строка запроса, заголовок, фрагмент JSON. Обычный текст не меняется.
+- Сообщение не обрабатывается: передавайте секреты через плейсхолдеры (`'{password}'`) — процессоры выполняются до
+  интерполяции, и подставляется уже скрытое значение.
+
+## Файлы и ротация
+
+- `StreamHandler` открывает файл один раз (режим `a`, `fflush` после каждой записи). При внешней ротации
+  (logrotate) в долгоживущих процессах используйте `copytruncate`, иначе запись продолжится в переименованный файл.
+- `RotatingFileHandler` ротирует по размеру (`maxBytes`, хранит `maxFiles` архивов `path.1…path.N`). Если файл уже
+  ротировал другой процесс (FPM, несколько воркеров с одним логом), обработчик замечает это перед записью и
+  переоткрывает файл по исходному пути.
+
+## Долгоживущие процессы
+
+`BufferHandler` без вложенного обработчика и с `buffer_size: 0` и `InMemoryHandler` накапливают записи без предела.
+В воркерах очищайте их после задачи/запроса через хуки `ServicesResetter`
+(`['logger.buffer' => 'clear']`) или задавайте `buffer_size`.
 
 ## BufferHandler
 - `buffer_size`: 0 = без лимита.

@@ -9,11 +9,15 @@ use PhpSoftBox\Logger\Formatter\LineFormatter;
 use PhpSoftBox\Logger\LogLevel;
 use PhpSoftBox\Logger\LogRecord;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversMethod;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
+use const NAN;
+
 #[CoversClass(LineFormatter::class)]
+#[CoversMethod(LineFormatter::class, 'format')]
 final class LineFormatterTest extends TestCase
 {
     /**
@@ -63,5 +67,28 @@ final class LineFormatterTest extends TestCase
         self::assertStringContainsString('"class":"RuntimeException"', $line);
         self::assertStringContainsString("\n#0 ", $line);
         self::assertStringNotContainsString('"trace"', $line);
+    }
+
+    /**
+     * Проверим, что контекст с некорректным UTF-8 и NAN не роняет запись в лог.
+     *
+     * @see LineFormatter::format()
+     */
+    #[Test]
+    public function formatsContextWithInvalidUtf8AndNan(): void
+    {
+        $formatter = new LineFormatter();
+        $record    = new LogRecord(
+            level: 'info',
+            severity: LogLevel::Info,
+            message: 'Import',
+            context: ['row' => "\xB1\x31", 'ratio' => NAN],
+            datetime: new DateTimeImmutable('2026-02-18T10:00:00+00:00'),
+        );
+
+        $line = $formatter->format($record);
+
+        self::assertStringContainsString('"row":"\ufffd1"', $line);
+        self::assertStringContainsString('"ratio":"NAN"', $line);
     }
 }

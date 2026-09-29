@@ -10,6 +10,7 @@ use PhpSoftBox\Logger\LogLevel;
 use PhpSoftBox\Logger\LogRecord;
 use RuntimeException;
 
+use function clearstatcache;
 use function file_exists;
 use function filesize;
 use function rename;
@@ -37,6 +38,13 @@ final class RotatingFileHandler extends StreamHandler
 
     private function rotateIfNeeded(): void
     {
+        // Файл уже ротировал другой процесс (FPM, воркеры пишут в один лог): переоткрываем, иначе запись
+        // продолжится в переименованный файл.
+        if ($this->isStreamDetached()) {
+            $this->close();
+        }
+
+        clearstatcache(true, $this->path);
         if (!file_exists($this->path)) {
             return;
         }
