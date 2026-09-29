@@ -151,11 +151,11 @@ final class Logger implements LoggerInterface
     private function stringify(Stringable|string|int|float|bool|null $value): string
     {
         return match (true) {
-            $value instanceof Stringable => (string) $value,
-            is_string($value)            => $value,
+            $value instanceof Stringable     => (string) $value,
+            is_string($value)                => $value,
             is_int($value), is_float($value) => (string) $value,
-            is_bool($value) => $value ? 'true' : 'false',
-            default         => 'null',
+            is_bool($value)                  => $value ? 'true' : 'false',
+            default                          => 'null',
         };
     }
 

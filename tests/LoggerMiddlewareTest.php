@@ -9,6 +9,8 @@ use PhpSoftBox\Http\Message\ServerRequest;
 use PhpSoftBox\Logger\LoggerMiddleware;
 use PhpSoftBox\Logger\Tests\Fixtures\LoggerSpy;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 final class LoggerMiddlewareTest extends TestCase
@@ -26,8 +28,8 @@ final class LoggerMiddlewareTest extends TestCase
 
         $handler = new class () implements RequestHandlerInterface {
             public function handle(
-                \Psr\Http\Message\ServerRequestInterface $request,
-            ): \Psr\Http\Message\ResponseInterface {
+                ServerRequestInterface $request,
+            ): ResponseInterface {
                 return new Response(201);
             }
         };
