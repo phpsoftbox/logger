@@ -14,6 +14,7 @@ use PhpSoftBox\Logger\Processor\ProcessorInterface;
 use PhpSoftBox\Logger\Tests\Utils\SpyFormatter;
 use PhpSoftBox\Logger\Tests\Utils\SpyHandler;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\CoversMethod;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -24,7 +25,10 @@ use function sys_get_temp_dir;
 use function tempnam;
 use function unlink;
 
+use const JSON_UNESCAPED_UNICODE;
+
 #[CoversClass(LoggerFactory::class)]
+#[CoversMethod(LoggerFactory::class, 'create')]
 final class LoggerFactoryTest extends TestCase
 {
     /**
@@ -187,6 +191,69 @@ final class LoggerFactoryTest extends TestCase
 
         self::assertStringContainsString('"trace":"#0 ', $contents);
         self::assertStringNotContainsString("\n#0 ", $contents);
+    }
+
+    /**
+     * Проверим, что JSON-форматтер из массива конфигурации создаётся (flags передаются по имени) и пишет JSON.
+     *
+     * @see LoggerFactory::create()
+     */
+    #[Test]
+    public function createsJsonFormatterFromArrayConfig(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'logger');
+        self::assertIsString($tempFile);
+
+        $factory = new LoggerFactory([
+            'channels' => [
+                'json' => [
+                    'handlers' => [[
+                        'type'      => 'stream',
+                        'path'      => $tempFile,
+                        'formatter' => ['type' => 'json', 'flags' => JSON_UNESCAPED_UNICODE],
+                    ]],
+                ],
+            ],
+        ]);
+
+        $factory->create('json')->info('Привет', ['user' => 'Алиса']);
+
+        $contents = (string) file_get_contents($tempFile);
+        unlink($tempFile);
+
+        self::assertStringContainsString('{"message":"Привет","context":{"user":"Алиса"},"extra":[]}', $contents);
+    }
+
+    /**
+     * Проверим, что формат строки по умолчанию для конфигурации-массива совпадает с LineFormatter по умолчанию
+     * и выводит context.
+     *
+     * @see LoggerFactory::create()
+     */
+    #[Test]
+    public function lineFormatterArrayConfigKeepsContext(): void
+    {
+        $tempFile = tempnam(sys_get_temp_dir(), 'logger');
+        self::assertIsString($tempFile);
+
+        $factory = new LoggerFactory([
+            'channels' => [
+                'errors' => [
+                    'handlers' => [[
+                        'type'      => 'stream',
+                        'path'      => $tempFile,
+                        'formatter' => ['type' => 'line', 'stacktrace_multiline' => true],
+                    ]],
+                ],
+            ],
+        ]);
+
+        $factory->create('errors')->error('boom', ['order_id' => 42]);
+
+        $contents = (string) file_get_contents($tempFile);
+        unlink($tempFile);
+
+        self::assertStringContainsString('ERROR: boom {"order_id":42}', $contents);
     }
 
     /**

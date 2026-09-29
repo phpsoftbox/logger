@@ -15,8 +15,10 @@ use Stringable;
 
 use function array_map;
 use function is_bool;
+use function is_finite;
 use function is_float;
 use function is_int;
+use function is_nan;
 use function is_scalar;
 use function is_string;
 use function strtolower;
@@ -151,11 +153,12 @@ final class Logger implements LoggerInterface
     private function stringify(Stringable|string|int|float|bool|null $value): string
     {
         return match (true) {
-            $value instanceof Stringable     => (string) $value,
-            is_string($value)                => $value,
-            is_int($value), is_float($value) => (string) $value,
-            is_bool($value)                  => $value ? 'true' : 'false',
-            default                          => 'null',
+            $value instanceof Stringable => (string) $value,
+            is_string($value)            => $value,
+            is_int($value)               => (string) $value,
+            is_float($value)             => is_finite($value) ? (string) $value : (is_nan($value) ? 'NAN' : ($value > 0 ? 'INF' : '-INF')),
+            is_bool($value)              => $value ? 'true' : 'false',
+            default                      => 'null',
         };
     }
 

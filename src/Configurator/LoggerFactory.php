@@ -153,9 +153,12 @@ final class LoggerFactory implements LoggerFactoryInterface
             $type = $config['type'] ?? 'line';
 
             return match ($type) {
-                'json'  => new JsonFormatter($config['flags'] ?? JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                'json' => new JsonFormatter(
+                    format: $config['format'] ?? JsonFormatter::DEFAULT_FORMAT,
+                    flags: $config['flags'] ?? JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                ),
                 default => new LineFormatter(
-                    format: $config['format'] ?? '[%datetime%] %level_name%: %message%',
+                    format: $config['format'] ?? LineFormatter::DEFAULT_FORMAT,
                     dateFormat: $config['date_format'] ?? DATE_ATOM,
                     stacktraceMultiline: (bool) ($config['stacktrace_multiline'] ?? $config['stacktraceMultiline'] ?? true),
                 ),

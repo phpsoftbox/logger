@@ -21,8 +21,11 @@
     },
     "require-dev": {
         "phpsoftbox/cs-fixer": "^1.2.1",
-        "phpunit/phpunit": "^13.3",
-        "phpsoftbox/http-message": "dev-master"
+        "phpsoftbox/http-message": "dev-master",
+        "phpunit/phpunit": "^13.3"
+    },
+    "provide": {
+        "psr/log-implementation": "3.0.0"
     },
     "autoload": {
         "psr-4": {

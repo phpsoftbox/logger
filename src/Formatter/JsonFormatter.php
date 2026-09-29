@@ -10,7 +10,6 @@ use PhpSoftBox\Logger\LogRecord;
 use function array_key_exists;
 use function is_array;
 use function json_decode;
-use function json_encode;
 use function json_validate;
 use function strtoupper;
 use function strtr;
@@ -23,19 +22,20 @@ use const JSON_UNESCAPED_UNICODE;
 
 final readonly class JsonFormatter implements FormatterInterface
 {
+    public const string DEFAULT_FORMAT = '[%datetime%] %level_name%: %message%';
+
+    private ContextNormalizer $normalizer;
+
     public function __construct(
-        private string $format = '[%datetime%] %level_name%: %message%',
+        private string $format = self::DEFAULT_FORMAT,
         private int $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
     ) {
+        $this->normalizer = new ContextNormalizer();
     }
 
-    /**
-     * @throws JsonException
-     */
     public function format(LogRecord $record): string
     {
-        $payload = $this->buildPayload($record);
-        $message = $this->encodePayload($payload);
+        $message = $this->normalizer->encode($this->normalizer->normalize($this->buildPayload($record)), $this->flags);
 
         return strtr($this->format, [
             '%datetime%'   => $record->datetime->format(DATE_ATOM),
@@ -46,21 +46,8 @@ final readonly class JsonFormatter implements FormatterInterface
     }
 
     /**
-     * @param array<string, mixed>|list<mixed> $payload
-     * @throws JsonException
+     * @return array<string, mixed>
      */
-    private function encodePayload(array $payload): string
-    {
-        try {
-            return json_encode($payload, JSON_THROW_ON_ERROR | $this->flags);
-        } catch (JsonException $exception) {
-            return json_encode([
-                'message' => $payload['message'] ?? 'JSON_ENCODING_ERROR',
-                'error'   => $exception->getMessage(),
-            ], JSON_THROW_ON_ERROR | $this->flags);
-        }
-    }
-
     private function buildPayload(LogRecord $record): array
     {
         $decodedMessage = $this->decodeJsonString($record->message);
