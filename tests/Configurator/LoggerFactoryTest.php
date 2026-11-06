@@ -7,6 +7,7 @@ namespace PhpSoftBox\Logger\Tests\Configurator;
 use PhpSoftBox\Logger\Configurator\LoggerFactory;
 use PhpSoftBox\Logger\Handler\BufferHandler;
 use PhpSoftBox\Logger\Handler\NullHandler;
+use PhpSoftBox\Logger\Handler\RotatingFileHandler;
 use PhpSoftBox\Logger\Handler\StreamHandler;
 use PhpSoftBox\Logger\Logger;
 use PhpSoftBox\Logger\LogRecord;
@@ -21,8 +22,13 @@ use RuntimeException;
 
 use function count;
 use function file_get_contents;
+use function glob;
+use function mkdir;
+use function rmdir;
+use function str_repeat;
 use function sys_get_temp_dir;
 use function tempnam;
+use function uniqid;
 use function unlink;
 
 use const JSON_UNESCAPED_UNICODE;
@@ -57,6 +63,44 @@ final class LoggerFactoryTest extends TestCase
         self::assertInstanceOf(Logger::class, $logger);
         self::assertSame('custom-channel', $logger->getName());
         self::assertInstanceOf(StreamHandler::class, $logger->getHandlers()[0]);
+    }
+
+    /**
+     * Проверяет тип `rotating` из конфига: файл ограниченного размера уходит в архив `.1`, хранится `max_files` архивов.
+     */
+    #[Test]
+    public function createsRotatingHandlerFromConfig(): void
+    {
+        $dir  = sys_get_temp_dir() . '/psb-rotating-' . uniqid();
+        $path = $dir . '/app.log';
+        mkdir($dir);
+
+        try {
+            $logger = new LoggerFactory([
+                'channels' => [
+                    'app' => [
+                        'name'     => 'app',
+                        'handlers' => [['type' => 'rotating', 'path' => $path, 'max_bytes' => 64, 'max_files' => 2]],
+                    ],
+                ],
+            ])->create('app');
+
+            self::assertInstanceOf(RotatingFileHandler::class, $logger->getHandlers()[0]);
+
+            for ($i = 0; $i < 10; $i++) {
+                $logger->info(str_repeat('x', 80));
+            }
+
+            self::assertFileExists($path);
+            self::assertFileExists($path . '.1');
+            self::assertFileExists($path . '.2');
+            self::assertFileDoesNotExist($path . '.3');
+        } finally {
+            foreach (glob($dir . '/*') ?: [] as $file) {
+                unlink($file);
+            }
+            rmdir($dir);
+        }
     }
 
     /**

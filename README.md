@@ -45,6 +45,8 @@ $factory = new LoggerFactory([
             'handlers' => [
                 new StreamHandler(__DIR__ . '/var/log/app.log'),
                 new NullHandler(),
+                // Ограниченный размер: при `max_bytes` файл уходит в `app.log.1`, хранится `max_files` архивов.
+                ['type' => 'rotating', 'path' => __DIR__ . '/var/log/app.log', 'max_bytes' => 52428800, 'max_files' => 5],
                 [
                     'type' => 'buffer',
                     'buffer_size' => 100,

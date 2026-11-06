@@ -10,6 +10,7 @@ use PhpSoftBox\Logger\Formatter\JsonFormatter;
 use PhpSoftBox\Logger\Formatter\LineFormatter;
 use PhpSoftBox\Logger\Handler\BufferHandler;
 use PhpSoftBox\Logger\Handler\HandlerInterface;
+use PhpSoftBox\Logger\Handler\RotatingFileHandler;
 use PhpSoftBox\Logger\Handler\StreamHandler;
 use PhpSoftBox\Logger\Logger;
 use PhpSoftBox\Logger\LogLevel;
@@ -83,6 +84,15 @@ final class LoggerFactory implements LoggerFactoryInterface
                 'stream' => new StreamHandler(
                     path: $config['path'] ?? sys_get_temp_dir() . '/phpsoftbox.log',
                     mode: $config['mode'] ?? 'a',
+                    level: $level,
+                    formatter: $formatter,
+                    processors: $processors,
+                ),
+                // A file of a limited size: at `max_bytes` it moves to `.1` (older ones shift), `max_files` archives are kept.
+                'rotating' => new RotatingFileHandler(
+                    path: $config['path'] ?? sys_get_temp_dir() . '/phpsoftbox.log',
+                    maxFiles: (int) ($config['max_files'] ?? 5),
+                    maxBytes: (int) ($config['max_bytes'] ?? 1048576),
                     level: $level,
                     formatter: $formatter,
                     processors: $processors,
